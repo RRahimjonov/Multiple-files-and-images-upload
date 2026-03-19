@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StoreImageRequest;
 
 
+use App\Models\Media;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Str;
@@ -23,7 +24,14 @@ class ImageController extends Controller
 
             $filename = $this->makeUniqueFileName($imageFile);
 
-            $imageFile->storeAs($folder, $filename);
+            $path = $imageFile->storeAs($folder, $filename);
+
+            Media::create([
+                'filename' => $filename,
+                'mime_type' => $imageFile->getMimeType(),
+                'size' => $imageFile->getSize(),
+                'path' => $path
+            ]);
         }
     }
 
