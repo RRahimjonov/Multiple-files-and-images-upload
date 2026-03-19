@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\ImageController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -13,6 +14,8 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
-Route::get('/', function () {
-    return view('welcome');
-});
+Route::get('/', fn() => redirect()->route('images.create') );
+
+Route::get('images/create', [ImageController::class, 'create'])->name('images.create');
+
+Route::post('images', [ImageController::class, 'store'])->name('images.store');
