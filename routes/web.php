@@ -18,4 +18,4 @@ Route::get('/', fn() => redirect()->route('images.create') );
 
 Route::get('images/create', [ImageController::class, 'create'])->name('images.create');
 
-Route::post('images', [ImageController::class, 'store'])->name('images.store');
+Route::post('/images', [ImageController::class, 'store'])->name('images.store');
