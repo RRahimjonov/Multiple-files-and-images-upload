@@ -47,4 +47,11 @@ class ImageController extends Controller
             . '.'
             . $info['extension'] ;
     }
+
+    public function index()
+    {
+        $media = Media::all();
+
+        return view('image.index', compact('media'));
+    }
 }
