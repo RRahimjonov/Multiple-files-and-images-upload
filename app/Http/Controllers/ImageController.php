@@ -9,11 +9,18 @@ use App\Models\Media;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Str;
+use Intervention\Image\ImageManager;
 
 class ImageController extends Controller
 {
     public function create(){
         return view('image.create');
+    }
+
+    protected function  resizeImage(UploadedFile $imageFile)
+    {
+        $image = ImageManager::imagick()->read($imageFile->getRealPath());
+        $image->scaleDown(320)
     }
 
     public function store(StoreImageRequest $request){
