@@ -8,6 +8,7 @@ use App\Http\Requests\StoreImageRequest;
 use App\Models\Media;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Intervention\Image\ImageManager;
 
@@ -20,7 +21,8 @@ class ImageController extends Controller
     protected function  resizeImage(UploadedFile $imageFile)
     {
         $image = ImageManager::imagick()->read($imageFile->getRealPath());
-        $image->scaleDown(320)
+        $image->scaleDown(320);
+        return $image->toJpeg(quality: 80);
     }
 
     public function store(StoreImageRequest $request){
@@ -31,14 +33,20 @@ class ImageController extends Controller
 
             $filename = $this->makeUniqueFileName($imageFile);
 
-            $path = $imageFile->storeAs($folder, $filename);
+            $resizedImage = $this->resizeImage($imageFile);
+
+            $path = $folder.'/'.$filename;
+
+            Storage::disk('public')->put($path, $resizedImage);
 
             Media::create([
                 'filename' => $filename,
                 'mime_type' => $imageFile->getMimeType(),
-                'size' => $imageFile->getSize(),
+                'size' => strlen($resizedImage),
                 'path' => $path
             ]);
+
+            return to_route('images.index');
         }
     }
 
