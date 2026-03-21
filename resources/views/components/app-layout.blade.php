@@ -12,6 +12,8 @@
         <link rel="preconnect" href="https://fonts.googleapis.com">
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
         <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&display=swap" rel="stylesheet">
+        <link href="https://cdn.jsdelivr.net/npm/filepond/dist/filepond.min.css" rel="stylesheet">
+        <link href="https://cdn.jsdelivr.net/npm/filepond-plugin-image-preview/dist/filepond-plugin-image-preview.min.css" rel="stylesheet">
         @vite(['resources/css/app.css'])
     </head>
     <body>
@@ -30,5 +32,6 @@
 
             {{ $slot }}
         </main>
+        @stack('scripts')
     </body>
 </html>

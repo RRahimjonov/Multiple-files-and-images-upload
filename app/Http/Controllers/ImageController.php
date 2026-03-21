@@ -45,9 +45,9 @@ class ImageController extends Controller
                 'size' => strlen($resizedImage),
                 'path' => $path
             ]);
-
-            return to_route('images.index');
         }
+
+        return to_route('images.index');
     }
 
     protected function makeUniqueFileName(UploadedFile $imageFile){
@@ -69,4 +69,6 @@ class ImageController extends Controller
 
         return view('image.index', compact('media'));
     }
+
+
 }

@@ -17,4 +17,22 @@
             <button class="btn" type="submit">Upload</button>
         </form>
     </section>
+    @push('scripts')
+        <script type="module">
+            import * as FilePond from 'https://cdn.jsdelivr.net/npm/filepond/dist/filepond.esm.min.js';
+            import FilePondPluginImagePreview from 'https://cdn.jsdelivr.net/npm/filepond-plugin-image-preview/dist/filepond-plugin-image-preview.esm.min.js';
+
+            FilePond.registerPlugin(FilePondPluginImagePreview);
+
+            FilePond.create(document.querySelector('input[type="file"]'), {
+                allowMultiple: true,
+                labelIdle: 'Drag & drop images or <span class="filepond--label-action">Choose</span>',
+                acceptedFileTypes: ['image/jpeg', 'image/png', 'image/webp'],
+                fileValidateTypeLabelExpectedTypes: 'Only jpg, png, webp allowed',
+                storeAsFile: true,
+                name: 'images[]',
+            });
+        </script>
+    @endpush
 </x-app-layout>
+
