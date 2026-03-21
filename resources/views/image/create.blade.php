@@ -1,10 +1,20 @@
-<h1>Image Upload</h1>
+<x-app-layout title="Image upload" subtitle="Select multiple images and send them in one go.">
+    <x-slot:actions>
+        <a class="btn secondary" href="{{ route('images.index') }}">All images</a>
+    </x-slot:actions>
 
-<form method="POST" action="{{ route('images.store') }}" enctype="multipart/form-data">
-   @csrf
-    <input type="file" name="images[]" multiple accept="image/*">
-    @error('images')
-    <p>{{ $message }}</p>
-    @enderror
-    <button type="submit">Upload</button>
-</form>
+    <section class="card">
+        <form class="upload" method="POST" action="{{ route('images.store') }}" enctype="multipart/form-data">
+            @csrf
+            <label class="file">
+                <input type="file" name="images[]" multiple accept="image/*">
+            </label>
+
+            @error('images')
+                <p class="error">{{ $message }}</p>
+            @enderror
+
+            <button class="btn" type="submit">Upload</button>
+        </form>
+    </section>
+</x-app-layout>
