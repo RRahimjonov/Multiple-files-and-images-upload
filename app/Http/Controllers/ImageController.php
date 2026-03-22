@@ -29,7 +29,7 @@ class ImageController extends Controller
 
         $folder = "images/" . date('Y/m');
 
-        foreach ($request->images as $imageFile){
+        $imageFile = $request->file('image');
 
             $filename = $this->makeUniqueFileName($imageFile);
 
@@ -39,15 +39,14 @@ class ImageController extends Controller
 
             Storage::disk('public')->put($path, $resizedImage);
 
-            Media::create([
+            $media = Media::create([
                 'filename' => $filename,
                 'mime_type' => $imageFile->getMimeType(),
                 'size' => strlen($resizedImage),
                 'path' => $path
             ]);
-        }
 
-        return to_route('images.index');
+        return response()->json($media);
     }
 
     protected function makeUniqueFileName(UploadedFile $imageFile){
@@ -65,7 +64,7 @@ class ImageController extends Controller
 
     public function index()
     {
-        $media = Media::all();
+        $media = Media::latest()->get();
 
         return view('image.index', compact('media'));
     }
