@@ -1,0 +1,269 @@
+================================================================
+   LARAVEL FILE UPLOADS — COMPLETE NOTES
+   Synchronous vs Asynchronous + PHP Configuration
+================================================================
+
+
+----------------------------------------------------------------
+PART 1 — THE PROBLEM WITH NORMAL (SYNCHRONOUS) UPLOADS
+----------------------------------------------------------------
+
+When you click Upload normally, the browser takes ALL files,
+puts them into ONE giant package, and sends everything at once.
+
+This is called SYNCHRONOUS — meaning everything happens
+at the same time, in one single request.
+
+Problems this causes:
+  - Timeout       → PHP runs out of time before finishing
+  - Size limit     → Server rejects the request (too big)
+  - 500 Error      → Server crashes under the load
+  - No feedback    → User sees nothing while waiting
+  - All or nothing → If one file fails, you don't know which one
+
+These problems are NOT Laravel's fault.
+They come from PHP's default settings which are very strict.
+
+
+----------------------------------------------------------------
+PART 2 — SOLUTION 1: FIX PHP LIMITS (php.ini)
+----------------------------------------------------------------
+
+PHP has a config file called php.ini.
+Think of it as PHP's rulebook.
+
+Location we edited:
+  /etc/php/8.4/apache2/php.ini   ← Apache uses this one
+  /etc/php/8.1/apache2/php.ini   ← Also edited this one
+
+IMPORTANT LESSON WE LEARNED:
+  - CLI php.ini  (/etc/php/8.4/cli/php.ini)  = used by terminal
+  - Apache php.ini (/etc/php/8.4/apache2/php.ini) = used by web server
+  - They are SEPARATE files. Editing the wrong one does nothing.
+
+Settings we changed:
+
+  upload_max_filesize = 100M
+    → Max size of ONE single file
+    → Default was 2M — way too small
+
+  post_max_size = 128M
+    → Max size of the ENTIRE request (all files + form data)
+    → Must ALWAYS be larger than upload_max_filesize
+
+  max_execution_time = 300
+    → How many seconds PHP is allowed to run
+    → Default was 30 seconds — not enough for large uploads
+
+  max_input_time = 300
+    → How many seconds PHP waits to receive the incoming data
+    → Also needs to be raised for large uploads
+
+  memory_limit = 256M
+    → How much RAM PHP can use
+    → Large files need more memory to process
+
+After editing php.ini you MUST restart Apache:
+  sudo systemctl restart apache2
+
+To verify changes took effect, create a phpinfo file:
+  echo "<?php phpinfo();" | sudo tee /path/to/project/public/info.php
+  Then open: http://yoursite.test/info.php
+  Search for upload_max_filesize on that page.
+
+ALSO IMPORTANT — Laravel validation has its own limit:
+  In StoreImageRequest.php the rule max:2048 means 2048KB = 2MB
+  Even if PHP allows 100M, Laravel will reject files over 2MB
+  We changed it to: max:10240 (which is 10MB)
+
+WARNING:
+  Do NOT set PHP limits to unlimited.
+  Setting them too high makes your server vulnerable to attacks.
+  Set them to match what your project actually needs.
+
+
+----------------------------------------------------------------
+PART 3 — SOLUTION 2: ASYNC UPLOADS (AJAX)
+----------------------------------------------------------------
+
+WHAT IS ASYNC?
+  Instead of sending all files at once, JavaScript sends
+  them ONE BY ONE. Each file is its own separate request.
+
+  File 1 → send → wait → done
+  File 2 → send → wait → done
+  File 3 → send → wait → done
+
+This is called ASYNCHRONOUS — tasks happen in sequence,
+not all at once.
+
+WHY IS THIS BETTER?
+  - No timeouts        → each file is small and fast
+  - No size overflow   → one file at a time, never too big
+  - Better errors      → you know exactly which file failed
+  - No page reload     → user experience is much smoother
+  - Progress possible  → you can show uploading status
+  - Professional       → this is how real apps work
+
+
+----------------------------------------------------------------
+PART 4 — THE CODE CHANGES WE MADE
+----------------------------------------------------------------
+
+---- JAVASCRIPT (create.blade.php) ----
+
+The key concept: e.preventDefault()
+  This stops the browser from doing its normal form submit.
+  JavaScript takes full control instead.
+
+  form.addEventListener('submit', async function(e) {
+      e.preventDefault();  // Stop browser. I am taking over.
+      ...
+  });
+
+The key concept: async / await
+  await means "stop here and wait until this finishes"
+  async marks a function that is allowed to use await
+
+  async function uploadFiles() {    // must be async
+      await fetch(...)              // wait for this to finish
+      await fetch(...)              // then this
+  }
+
+  Without await — all files fire at the same time (bad)
+  With await    — files send one by one in order (good)
+
+The key concept: fetch
+  fetch is JavaScript's tool to send HTTP requests
+  without reloading the page.
+
+  const response = await fetch('/images', {
+      method: 'POST',
+      headers: { 'X-CSRF-TOKEN': csrfToken },
+      body: formData
+  });
+
+  fetch returns a response object.
+  response.ok = true means server returned success (200-299)
+  response.ok = false means something went wrong
+
+The key concept: FormData
+  FormData is like a package you build in JavaScript.
+  You put files inside it and send it via fetch.
+
+  const formData = new FormData();
+  formData.append('image', files[i].file);  // add ONE file
+
+The key concept: CSRF Token
+  Laravel requires a security token on every POST request.
+  When using fetch (AJAX), you must send it manually in headers.
+
+  const csrfToken = form.querySelector('input[name="_token"]').value;
+  headers: { 'X-CSRF-TOKEN': csrfToken }
+
+FilePond important lesson:
+  When FilePond is active, fileInput.files returns EMPTY.
+  FilePond manages its own internal file list.
+  You must get files from FilePond directly:
+
+  const pond = FilePond.create(...)   // save instance
+  const files = pond.getFiles()       // get files from FilePond
+  files[i].file                       // the actual File object
+
+
+---- STOREIMAGEQUEST.PHP ----
+
+BEFORE (synchronous — many files):
+  'images'   => 'required|array',
+  'images.*' => 'image|mimes:jpg,jpeg,png,webp|max:2048',
+
+AFTER (async — one file per request):
+  'image' => 'required|image|mimes:jpg,jpeg,png,webp|max:10240',
+
+Why the change:
+  Before — browser sent images[] array with all files
+  After  — JavaScript sends ONE file named 'image' per request
+  The [] and .* are gone because there is no array anymore
+
+
+---- IMAGECONTROLLER.PHP ----
+
+BEFORE (synchronous):
+  public function store(StoreImageRequest $request) {
+      foreach ($request->images as $imageFile) {
+          // process each file in the array
+      }
+      return to_route('images.index');  // redirect browser
+  }
+
+AFTER (async):
+  public function store(StoreImageRequest $request) {
+      $imageFile = $request->file('image');  // ONE file only
+      // process the single file
+      return response()->json($media);  // return JSON to JS
+  }
+
+Why return JSON instead of redirect?
+  When using AJAX, the browser does NOT handle the response.
+  JavaScript handles it.
+  JavaScript cannot follow a redirect — it needs data back.
+  response()->json() sends back the saved file info as JSON.
+
+  JSON response looks like:
+  {
+      "id": 1,
+      "filename": "photo_1234.jpg",
+      "size": 98765,
+      "path": "images/2026/03/photo_1234.jpg"
+  }
+
+  JavaScript then redirects manually after all files are done:
+  window.location.href = "/images";
+
+
+----------------------------------------------------------------
+PART 5 — THE COMPLETE FLOW COMPARISON
+----------------------------------------------------------------
+
+SYNCHRONOUS (old way):
+  User clicks Upload
+    → Browser packages ALL files
+    → Sends ONE giant request
+    → Page freezes while waiting
+    → Server processes everything
+    → Browser redirects to new page
+    → Done (or crashes if too big)
+
+ASYNCHRONOUS (new way):
+  User clicks Upload
+    → JavaScript intercepts with e.preventDefault()
+    → JavaScript gets files from FilePond
+    → Loop starts:
+        File 1 → FormData → fetch → Controller → JSON back
+        File 2 → FormData → fetch → Controller → JSON back
+        File 3 → FormData → fetch → Controller → JSON back
+    → All done → JavaScript redirects to images page
+
+
+----------------------------------------------------------------
+PART 6 — KEY WORDS TO REMEMBER
+----------------------------------------------------------------
+
+  synchronous    = happens all at once, waits for everything
+  asynchronous   = happens in steps, doesn't block
+  AJAX           = technique to send requests without page reload
+  fetch          = JavaScript's tool to make HTTP requests
+  async/await    = JavaScript keywords to handle waiting
+  FormData       = JavaScript object to hold files for sending
+  CSRF Token     = security token Laravel requires on POST requests
+  e.preventDefault() = stops the browser's default action
+  response.ok    = true if server returned success
+  response()->json() = Laravel returns data as JSON to JavaScript
+  pond.getFiles() = gets files from FilePond (not native input)
+  php.ini        = PHP's configuration file
+  apache2        = web server that runs your Laravel app
+
+
+================================================================
+END OF NOTES
+================================================================
